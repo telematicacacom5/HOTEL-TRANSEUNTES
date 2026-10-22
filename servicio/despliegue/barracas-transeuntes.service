@@ -1,0 +1,37 @@
+# Servicio de guardado de las barracas de transeúntes.
+#
+#   sudo cp barracas-transeuntes.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now barracas-transeuntes
+#
+# Revisar que RAIZ apunte a la misma carpeta que sirve nginx.
+
+[Unit]
+Description=Guardado de estancias - Barracas de Transeúntes
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/barracas-transeuntes/servicio
+ExecStart=/usr/bin/node /opt/barracas-transeuntes/servicio/index.js
+Restart=always
+RestartSec=3
+
+Environment=RAIZ=/var/www/barracas-transeuntes
+# 8787 lo usa la cuenta regresiva si conviven en el mismo servidor.
+Environment=PUERTO=8788
+# Solo local: de internet se entra por nginx, nunca directo al servicio.
+Environment=ESCUCHA=127.0.0.1
+Environment=GIT_AUTOR=Barracas Transeúntes
+Environment=GIT_CORREO=barracas@cacom5.local
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/barracas-transeuntes
+
+[Install]
+WantedBy=multi-user.target

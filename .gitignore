@@ -1,0 +1,28 @@
+# --- Datos personales ---
+# Nombres e identificaciones de los huéspedes. Los escribe el servidor y no
+# deben subirse a ningún repositorio externo.
+data/estancias.json
+data/*.tmp
+
+# --- Credenciales ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- Documento de trabajo interno ---
+ESTADO.md
+
+# --- macOS y editores ---
+.DS_Store
+._*
+.vscode/
+.idea/
+*.swp
+
+# --- Herramientas locales ---
+.claude/
+CLAUDE.local.md
+
+node_modules/
+*.log

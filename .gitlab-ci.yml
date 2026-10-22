@@ -1,0 +1,39 @@
+# Despliegue de la página y del servicio al servidor institucional.
+#
+# Hace falta un runner registrado en GitLab. Si no lo hay, el despliegue se
+# hace a mano con el mismo rsync (ver servicio/LEEME.md).
+#
+# Variables en Settings -> CI/CD -> Variables (protegidas):
+#   SSH_CLAVE     clave privada del usuario de despliegue   (tipo File)
+#   SSH_HOST      servidor de destino
+#   SSH_USUARIO   usuario de despliegue
+#
+# A diferencia de la cuenta regresiva, aquí NO hay trabajo de sincronización
+# de vuelta: data/estancias.json lleva datos personales y se queda en el
+# servidor. Su historial es el repositorio git local de /var/www.
+
+stages:
+  - desplegar
+
+desplegar:
+  stage: desplegar
+  before_script:
+    - command -v rsync >/dev/null || (apt-get update -qq && apt-get install -y -qq rsync openssh-client)
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - cp "$SSH_CLAVE" ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+    - ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    # NO toca data/: lo escribe el servidor cada vez que alguien registra.
+    - rsync -az --delete
+        --exclude='data/'
+        --exclude='.git/'
+        --exclude='servicio/'
+        --exclude='.gitlab-ci.yml'
+        --exclude='ESTADO.md'
+        -e "ssh -i ~/.ssh/id_deploy"
+        ./ "$SSH_USUARIO@$SSH_HOST:/var/www/barracas-transeuntes/"
+    - rsync -az -e "ssh -i ~/.ssh/id_deploy"
+        ./servicio/ "$SSH_USUARIO@$SSH_HOST:/opt/barracas-transeuntes/servicio/"
+    - ssh -i ~/.ssh/id_deploy "$SSH_USUARIO@$SSH_HOST" "sudo systemctl restart barracas-transeuntes"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
