@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Control Barracas de Transeúntes</title>
+<style>
+:root{--bg:#f2f1f5;--card:#fff;--tx:#1d2a1f;--mut:#667366;--bd:#dcdae3;--pri:#2f5d3a;--ok:#2e9e56;--okbg:#e2f4e8;--no:#c93c3c;--nobg:#fbe5e5;--mid:#d98a12;--midbg:#fdf0d8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a15;--card:#1e271f;--tx:#e8efe8;--mut:#9aa89a;--bd:#2f3b30;--pri:#6fbf80;--ok:#4cc77a;--okbg:#1c3626;--no:#ee6b6b;--nobg:#3d2222;--mid:#f0b04a;--midbg:#3d3118}}
+:root[data-theme="dark"]{--bg:#141a15;--card:#1e1e27;--tx:#e8eaef;--mut:#9a9aa8;--bd:#2f3b30;--pri:#6fbf80;--ok:#4cc77a;--okbg:#1c3626;--no:#ee6b6b;--nobg:#3d2222;--mid:#f0b04a;--midbg:#3d3118}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--pri);color:#fff;padding:18px 16px}
+header h1{margin:0;font-size:1.3rem}header p{margin:2px 0 0;opacity:.85;font-size:.85rem}#dbst{font-size:.75rem;margin-top:6px}
+@media (prefers-color-scheme:dark){header{color:#0e1a10}}
+main{max-width:1100px;margin:0 auto;padding:14px}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{margin:0 0 10px;font-size:1.05rem}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+label{display:flex;flex-direction:column;font-size:.78rem;color:var(--mut);gap:3px;flex:1 1 170px}
+input,select,textarea,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px}
+button{cursor:pointer;background:var(--pri);color:#fff;border:0;font-weight:600}
+@media (prefers-color-scheme:dark){button{color:#0e1a10}}
+button.sec{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+button.sm{padding:4px 9px;font-size:.78rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:12px}
+.stat{border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:1.6rem}.stat span{font-size:.78rem}
+.s-ok{background:var(--okbg);color:var(--ok)}.s-no{background:var(--nobg);color:var(--no)}.s-mid{background:var(--midbg);color:var(--mid)}.s-n{background:var(--bg);color:var(--tx)}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:12px;background:var(--bd)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.room{border:1px solid var(--bd);border-left:5px solid var(--ok);border-radius:10px;padding:10px;background:var(--card)}
+.room.no{border-left-color:var(--no)}.room.mid{border-left-color:var(--mid)}
+.room h3{margin:0;font-size:1rem;display:flex;justify-content:space-between;gap:6px;align-items:center}
+.badge{font-size:.7rem;padding:2px 8px;border-radius:99px;font-weight:700}
+.beds{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.bed{font-size:.8rem;padding:4px 7px;border-radius:6px;display:flex;justify-content:space-between;gap:6px}
+.bed.f{background:var(--okbg);color:var(--ok)}.bed.o{background:var(--nobg);color:var(--no)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.82rem;min-width:760px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:.74rem}
+.hide{display:none}.note{font-size:.78rem;color:var(--mut);margin:6px 0 0}
+</style>
+</head>
+<body>
+<header><h1>Control Barracas de Transeúntes</h1><p>Disponibilidad de habitaciones y camas, con hora exacta de ingreso y salida</p><p id="dbst">Conectando con la base de datos…</p></header>
+<main>
+
+<section class="panel">
+<h2>Disponibilidad</h2>
+<div class="row">
+<label>Consultar a la fecha y hora<input type="datetime-local" id="q"></label>
+<button class="sec" id="ahora" style="flex:0 0 auto">Ahora</button>
+</div>
+<div class="stats" id="stats"></div>
+<div class="bar" id="bar"></div>
+</section>
+
+<section class="panel"><h2>Habitaciones</h2><div class="grid" id="grid"></div></section>
+
+<section class="panel">
+<h2>Registrar ingreso</h2>
+<div class="row">
+<label>Nombre completo<input id="nom"></label>
+<label>Identificación<input id="ide" inputmode="numeric"></label>
+<label>Grado<input id="gra"></label>
+<label>Dependencia<input id="dep"></label>
+</div>
+<div class="row" style="margin-top:10px">
+<label>Fecha y hora de ingreso<input type="datetime-local" id="ing"></label>
+<label>Fecha y hora de salida (opcional)<input type="datetime-local" id="sal"></label>
+<label>Habitación<select id="hab"></select></label>
+<label>Cama<select id="cam"></select></label>
+</div>
+<div class="row" style="margin-top:10px">
+<label id="ocwrap" class="hide">Ocupación de la cama doble<select id="oc"><option value="1">1 persona</option><option value="2">Pareja (2 personas)</option></select></label>
+<label id="acwrap" class="hide">Nombre del acompañante<input id="aco"></label>
+<label style="flex:2 1 260px">Observaciones<input id="obs"></label>
+<button id="reg" style="flex:0 0 auto">Registrar</button>
+</div>
+<p class="note">Las camas ocupadas en ese horario aparecen deshabilitadas. El estado se calcula solo según las fechas.</p>
+</section>
+
+<section class="panel">
+<h2>Registros</h2>
+<div class="tw"><table><thead><tr><th>Nombre</th><th>Identificación</th><th>Grado / Dependencia</th><th>Habitación · Cama</th><th>Ingreso</th><th>Salida</th><th>Estado</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+<p class="note" id="vacio"></p>
+</section>
+</main>
+
+<script>
+// Composición de camas por habitación: S = sencilla, D = doble. Ajustar según la realidad.
+var NOMBRES=['1H VIP','2H','3H','4H','5H','6H','7H','8H','9H','10H','11H','12H VIP','13H VIP','14H','15H','16H','17H','18H','19H PRES','20H PRES','21H','22H','23H','24H'];
+var ROOMS=NOMBRES.map(function(n){var t=/VIP/.test(n)?['D']:/PRES/.test(n)?['S','S']:['S','S','D'];
+ var s=0,beds=t.map(function(k,i){if(k==='S')s++;return {id:n+'|'+i,tipo:k,label:k==='D'?(/VIP/.test(n)?'Doble VIP':'Doble'):'Sencilla '+s};});
+ return {n:n,beds:beds};});
+var KEY='barracas_transeuntes_v1',stays=[],COL=null;
+try{stays=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){stays=[]}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(stays))}catch(e){}}
+function dbErr(e){alert('No se pudo guardar en la base de datos: '+(e&&e.message?e.message:e))}
+function estadoDB(t,ok){var el=$('dbst');if(el){el.textContent=t;el.style.opacity=ok?1:.8}}
+// Base de datos compartida (si no está disponible, se usa el navegador como respaldo)
+if(window.claude&&claude.use){claude.use('db').then(function(db){
+ if(!db){estadoDB('Modo local: los datos solo se guardan en este navegador',false);return}
+ COL=db.collection('estancias');
+ COL.onSnapshot(function(snap){stays=snap.docs.map(function(d){return d.data()});estadoDB('Base de datos compartida conectada',true);render()},
+  function(e){COL=null;estadoDB('Base de datos no disponible; modo local',false)});
+}).catch(function(){estadoDB('Modo local: los datos solo se guardan en este navegador',false)})}
+else{setTimeout(function(){estadoDB('Modo local: los datos solo se guardan en este navegador',false)},0)}
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function loc(d){var p=function(n){return String(n).padStart(2,'0')};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())}
+function fmt(s){return s?new Date(s).toLocaleString('es-CO',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+function at(s,t){return new Date(s.ing)<=t&&(!s.sal||t<new Date(s.sal))}
+function overlap(a,b){var ai=new Date(a.ing),as=a.sal?new Date(a.sal):Infinity,bi=new Date(b.ing),bs=b.sal?new Date(b.sal):Infinity;return ai<bs&&bi<as}
+function qd(){return $('q').value?new Date($('q').value):new Date()}
+
+function render(){
+ var t=qd(),libres=0,ocup=0,parc=0,camasL=0,camasT=0,pers=0,h='';
+ ROOMS.forEach(function(r){
+  var nO=0,bh='';
+  r.beds.forEach(function(b){
+   var s=stays.filter(function(x){return x.bed===b.id&&at(x,t)})[0];camasT++;
+   if(s){nO++;pers+=+s.pers;bh+='<div class="bed o"><span>'+esc(b.label)+'</span><span>'+esc(s.nom.split(' ')[0])+(s.pers==2?' +1':'')+'</span></div>'}
+   else{camasL++;bh+='<div class="bed f"><span>'+esc(b.label)+'</span><span>libre</span></div>'}
+  });
+  var cls=nO===0?'':nO===r.beds.length?'no':'mid',lab=nO===0?'Disponible':nO===r.beds.length?'Ocupada':'Parcial';
+  if(nO===0)libres++;else if(nO===r.beds.length)ocup++;else parc++;
+  h+='<div class="room '+cls+'"><h3>'+esc(r.n)+'<span class="badge s-'+(cls===''?'ok':cls)+'">'+lab+'</span></h3><div class="note">'+r.beds.length+(r.beds.length===1?' cama':' camas')+'</div><div class="beds">'+bh+'</div></div>';
+ });
+ $('grid').innerHTML=h;
+ $('stats').innerHTML='<div class="stat s-ok"><b>'+libres+'</b><span>Habitaciones disponibles</span></div><div class="stat s-mid"><b>'+parc+'</b><span>Parcialmente ocupadas</span></div><div class="stat s-no"><b>'+ocup+'</b><span>Habitaciones ocupadas</span></div><div class="stat s-n"><b>'+camasL+' / '+camasT+'</b><span>Camas libres</span></div><div class="stat s-n"><b>'+pers+'</b><span>Personas alojadas</span></div>';
+ $('bar').innerHTML='<div style="width:'+libres/24*100+'%;background:var(--ok)"></div><div style="width:'+parc/24*100+'%;background:var(--mid)"></div><div style="width:'+ocup/24*100+'%;background:var(--no)"></div>';
+ tabla();fillBeds();
+}
+
+function estado(s){var n=new Date();if(new Date(s.ing)>n)return ['Programado','s-mid'];if(s.sal&&new Date(s.sal)<=n)return ['Finalizado','s-n'];return ['Ocupado','s-no']}
+function tabla(){
+ var list=stays.slice().sort(function(a,b){return new Date(b.ing)-new Date(a.ing)}),h='';
+ list.forEach(function(s){
+  var e=estado(s),hn=s.bed.split('|')[0],r=ROOMS.filter(function(x){return x.n===hn})[0],b=r?r.beds[+s.bed.split('|')[1]]:null;
+  h+='<tr><td>'+esc(s.nom)+(s.aco?'<br><small>+ '+esc(s.aco)+'</small>':'')+(s.obs?'<br><small>'+esc(s.obs)+'</small>':'')+'</td><td>'+esc(s.ide)+'</td><td>'+esc(s.gra)+'<br><small>'+esc(s.dep)+'</small></td><td>'+esc(hn)+' · '+esc(b?b.label:'')+'</td><td>'+fmt(s.ing)+'</td><td>'+fmt(s.sal)+'</td><td><span class="badge '+e[1]+'">'+e[0]+'</span></td><td>'+(e[0]==='Ocupado'?'<button class="sm" data-out="'+s.id+'">Registrar salida</button> ':'')+'<button class="sm sec" data-del="'+s.id+'">Borrar</button></td></tr>';
+ });
+ $('tb').innerHTML=h;$('vacio').textContent=list.length?'':'Aún no hay registros.';
+}
+
+function fillBeds(){
+ var hs=$('hab').value,r=ROOMS.filter(function(x){return x.n===hs})[0]||ROOMS[0],prev=$('cam').value,ing=$('ing').value,sal=$('sal').value,h='';
+ var cand={ing:ing||new Date().toISOString(),sal:sal||null};
+ r.beds.forEach(function(b){
+  var busy=ing&&stays.some(function(x){return x.bed===b.id&&overlap(x,cand)});
+  h+='<option value="'+b.id+'"'+(busy?' disabled':'')+'>'+esc(b.label)+(busy?' (ocupada)':'')+'</option>';
+ });
+ $('cam').innerHTML=h;if(prev&&$('cam').querySelector('option[value="'+prev+'"]:not([disabled])'))$('cam').value=prev;
+ var b=r.beds.filter(function(x){return x.id===$('cam').value})[0],dbl=b&&b.tipo==='D';
+ $('ocwrap').classList.toggle('hide',!dbl);
+ $('acwrap').classList.toggle('hide',!(dbl&&$('oc').value==='2'));
+}
+
+$('hab').innerHTML=ROOMS.map(function(r){return '<option>'+esc(r.n)+'</option>'}).join('');
+$('ahora').onclick=function(){$('q').value=loc(new Date());render()};
+['q'].forEach(function(i){$(i).onchange=render});
+['hab','cam','ing','sal','oc'].forEach(function(i){$(i).onchange=fillBeds});
+$('reg').onclick=function(){
+ var nom=$('nom').value.trim(),ing=$('ing').value,sal=$('sal').value,bed=$('cam').value;
+ if(!nom||!ing||!bed){alert('Falta el nombre, la fecha de ingreso o la cama.');return}
+ if(sal&&new Date(sal)<=new Date(ing)){alert('La salida debe ser posterior al ingreso.');return}
+ var cand={ing:ing,sal:sal||null};
+ if(stays.some(function(x){return x.bed===bed&&overlap(x,cand)})){alert('Esa cama ya está ocupada en ese horario.');return}
+ var dbl=!$('ocwrap').classList.contains('hide'),pers=dbl&&$('oc').value==='2'?2:1;
+ var st={id:Date.now()+''+Math.floor(Math.random()*999),nom:nom,ide:$('ide').value.trim(),gra:$('gra').value.trim(),dep:$('dep').value.trim(),bed:bed,ing:ing,sal:sal||null,pers:pers,aco:pers===2?$('aco').value.trim():'',obs:$('obs').value.trim()};
+ if(COL){COL.doc(st.id).set(st).catch(dbErr)}else{stays.push(st);save()}
+ ['nom','ide','gra','dep','sal','aco','obs'].forEach(function(i){$(i).value=''});$('oc').value='1';render();
+};
+$('tb').onclick=function(e){
+ var o=e.target.getAttribute('data-out'),d=e.target.getAttribute('data-del');
+ if(o){var v=loc(new Date());if(COL){COL.doc(o).update({sal:v}).catch(dbErr)}else{stays.forEach(function(s){if(s.id===o)s.sal=v});save();render()}}
+ if(d&&confirm('¿Borrar este registro?')){if(COL){COL.doc(d).delete().catch(dbErr)}else{stays=stays.filter(function(s){return s.id!==d});save();render()}}
+};
+$('q').value=loc(new Date());$('ing').value=loc(new Date());
+render();
+setInterval(function(){if(document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='SELECT')tabla()},60000);
+</script>
+</body>
+</html>
