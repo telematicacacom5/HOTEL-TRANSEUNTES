@@ -356,6 +356,13 @@
 .bed.det b { font-weight: 600; font-size: 13.5px; }
 .bed.det small { font-family: var(--f-mono); font-size: 11px; opacity: .85; }
 .bed.p { background: var(--warn-soft); color: var(--warn); }
+.tabs { max-width: 1320px; margin: 0 auto 16px; padding: 0 clamp(14px,3vw,28px); display: flex; gap: 8px; flex-wrap: wrap; }
+.tabs button.on { background-color: var(--accent); color: var(--on-accent); border-color: transparent; }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.grid.wide .bed span:last-child { white-space: normal; }
+.qrbox { display: flex; align-items: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+#qr { background: #fff; padding: 10px; border-radius: 12px; line-height: 0; }
+.consulta .tabs, .consulta #hist-btn, .consulta #hist { display: none !important; }
 </style>
 </head>
 <body>
@@ -379,7 +386,10 @@
     </div>
   </div>
 </header>
-
+<nav class="tabs" id="tabs">
+  <button class="sec on" data-tab="ocup" type="button">Ocupación</button>
+  <button class="sec" data-tab="fechas" type="button">Fechas disponibles</button>
+</nav>
 <main>
 
 <section class="panel hist" id="hist" hidden>
@@ -390,7 +400,7 @@
   <ol id="hist-list"></ol>
 </section>
 
-<section class="panel">
+<section class="panel" data-tab="ocup">
   <h2>Disponibilidad</h2>
   <div class="row">
     <label>Consultar a la fecha y hora<input type="datetime-local" id="q"></label>
@@ -400,9 +410,9 @@
   <div class="bar" id="bar"></div>
 </section>
 
-<section class="panel"><h2>Habitaciones</h2><div class="grid" id="grid"></div></section>
+<section class="panel" data-tab="ocup"><h2>Habitaciones</h2><div class="grid" id="grid"></div></section>
 
-<section class="panel">
+<section class="panel" data-tab="ocup">
   <h2>Registrar ingreso</h2>
   <div class="row">
     <label>Nombre completo<input id="nom" autocomplete="off"></label>
@@ -425,7 +435,7 @@
   <p class="note">Las camas ocupadas en ese horario aparecen deshabilitadas. El estado se calcula solo según las fechas.</p>
 </section>
 
-<section class="panel">
+<section class="panel" data-tab="ocup">
   <h2>Registros</h2>
   <div class="row" style="margin-bottom:10px">
     <label>Buscar por nombre, identificación o habitación<input id="buscar" type="search"></label>
@@ -438,11 +448,23 @@
   <div class="tw"><table><thead><tr><th>Nombre</th><th>Identificación</th><th>Grado / Dependencia</th><th>Habitación · Cama</th><th>Ingreso</th><th>Salida</th><th>Estado</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
   <p class="note" id="vacio"></p>
 </section>
+<section class="panel" data-tab="fechas" hidden>
+  <h2>Fechas disponibles</h2>
+  <div class="row">
+    <label>Desde<input type="datetime-local" id="fd"></label>
+    <label>Hasta<input type="datetime-local" id="fh"></label>
+    <label>Habitación<select id="fr"></select></label>
+  </div>
+  <div class="qrbox">
+    <div id="qr"></div>
+    <div><p class="note" style="margin:0">Escanea el QR para ver las fechas disponibles desde el celular.</p><p class="note" id="qrurl"></p></div>
+  </div>
+  <div class="grid wide" id="fgrid" style="margin-top:16px"></div>
+</section>
 </main>
-
 <footer id="foot-store"></footer>
 <div id="chip" role="status" aria-live="polite" data-state="saving">Leyendo…</div>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (function () {
   "use strict";
@@ -736,6 +758,7 @@
     renderTable();
     renderHist();
     fillBeds();
+        renderFechas();
   }
 
     function proximos(bedId, t) {
@@ -912,7 +935,57 @@ bh += proximos(b.id, t);
     $("clock-time").textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
     $("clock-date").textContent = d.toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
+  function libresCama(bedId, desde, hasta) {
+    var ocu = state.entries.filter(function (x) { return x.bed === bedId && overlap(x, { ing: desde, sal: hasta }); })
+      .sort(function (a, b) { return a.ing < b.ing ? -1 : 1; });
+    var out = [], cur = desde;
+    ocu.forEach(function (x) {
+      if (x.ing > cur) out.push([cur, x.ing]);
+      var fin = x.sal || hasta;
+      if (fin > cur) cur = fin;
+    });
+    if (cur < hasta) out.push([cur, hasta]);
+    return out;
+  }
 
+  function renderFechas() {
+    var d = $("fd").value, h = $("fh").value, sel = $("fr").value, html = "";
+    if (!d || !h || h <= d) { $("fgrid").innerHTML = '<p class="note">Elige un rango válido.</p>'; return; }
+    ROOMS.forEach(function (r) {
+      if (sel !== "*" && sel !== r.n) return;
+      var bh = "", enteras = 0;
+      r.beds.forEach(function (b) {
+        var libres = libresCama(b.id, d, h);
+        if (!libres.length) {
+          bh += '<div class="bed o"><span>' + esc(b.label) + '</span><span>sin cupo</span></div>';
+          return;
+        }
+        if (libres.length === 1 && libres[0][0] === d && libres[0][1] === h) enteras++;
+        bh += libres.map(function (w) {
+          var t = (w[0] === d && w[1] === h) ? "todo el período" : fmt(w[0]) + " → " + fmt(w[1]);
+          return '<div class="bed f"><span>' + esc(b.label) + '</span><span>' + t + '</span></div>';
+        }).join("");
+      });
+      var cls = enteras === r.beds.length ? "ok" : enteras === 0 ? "no" : "mid";
+      html += '<div class="room ' + cls + '"><h3>' + esc(r.n) + '</h3><div class="beds">' + bh + '</div></div>';
+    });
+    $("fgrid").innerHTML = html;
+  }
+
+  function setTab(t) {
+    document.querySelectorAll("section[data-tab]").forEach(function (el) { el.hidden = el.dataset.tab !== t; });
+    document.querySelectorAll("#tabs button").forEach(function (b) { b.classList.toggle("on", b.dataset.tab === t); });
+    if (t === "fechas") renderFechas();
+  }
+
+  function hacerQR() {
+    var url = location.origin + location.pathname + "#fechas";
+    var box = $("qr");
+    box.innerHTML = "";
+    if (typeof QRCode === "function") new QRCode(box, { text: url, width: 160, height: 160 });
+    else box.textContent = "QR no disponible";
+    $("qrurl").textContent = url;
+  }
   // ---------- arranque ----------
   loadPrefs();
   applyTheme();
@@ -951,7 +1024,13 @@ bh += proximos(b.id, t);
     if (btn.dataset.out) registrarSalida(btn.dataset.out);
     if (btn.dataset.del) borrar(btn.dataset.del);
   };
-
+  $("fr").innerHTML = '<option value="*">Todas</option>' + ROOMS.map(function (r) { return '<option value="' + esc(r.n) + '">' + esc(r.n) + "</option>"; }).join("");
+  $("fd").value = loc(new Date());
+  $("fh").value = loc(new Date(Date.now() + 30 * 864e5));
+  ["fd", "fh", "fr"].forEach(function (i) { $(i).onchange = renderFechas; });
+  $("tabs").onclick = function (e) { var b = e.target.closest("button"); if (b) setTab(b.dataset.tab); };
+  hacerQR();
+  if (location.hash === "#fechas") { document.body.classList.add("consulta"); setTab("fechas"); }
   state = loadLocal() || state;
   render();
   setChip("saving", "Leyendo…");
