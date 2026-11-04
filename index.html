@@ -10,7 +10,7 @@
 (function () {
   try {
     var p = JSON.parse(localStorage.getItem("barracas-prefs-v1") || "{}");
-    if (p && (p.theme === "light" || p.theme === "dark")) {
+    if (p && (p.theme === "light" || p.theme === "dark")) { 
       document.documentElement.setAttribute("data-theme", p.theme);
     }
   } catch (e) {}
@@ -351,6 +351,11 @@
     body { background-image: none; }
     .band, .panel, #chip { -webkit-backdrop-filter: none; backdrop-filter: none; }
   }
+.bed.det { flex-direction: column; gap: 2px; border-radius: var(--radius-sm); padding: 8px 12px; }
+.bed.det .bl { display: flex; justify-content: space-between; gap: 8px; }
+.bed.det b { font-weight: 600; font-size: 13.5px; }
+.bed.det small { font-family: var(--f-mono); font-size: 11px; opacity: .85; }
+.bed.p { background: var(--warn-soft); color: var(--warn); }
 </style>
 </head>
 <body>
@@ -733,6 +738,15 @@
     fillBeds();
   }
 
+    function proximos(bedId, t) {
+    return state.entries.filter(function (x) { return x.bed === bedId && x.ing > t; })
+      .sort(function (a, b) { return a.ing < b.ing ? -1 : 1; })
+      .map(function (x) {
+        return '<div class="bed p det"><b>Próximo: ' + esc((x.gra ? x.gra + " " : "") + x.nom) + '</b>' +
+          (x.pers === 2 ? '<small>+ ' + esc(x.aco || "acompañante") + '</small>' : '') +
+          '<small>' + fmt(x.ing) + ' → ' + fmt(x.sal) + '</small></div>';
+      }).join("");
+  }
   function renderRooms() {
     var t = queryTime(), libres = 0, ocup = 0, parc = 0, camasL = 0, camasT = 0, pers = 0, h = "";
     ROOMS.forEach(function (r) {
@@ -740,14 +754,17 @@
       r.beds.forEach(function (b) {
         var s = state.entries.filter(function (x) { return x.bed === b.id && activeAt(x, t); })[0];
         camasT++;
-        if (s) {
-          nO++; pers += s.pers;
-          bh += '<div class="bed o"><span>' + esc(b.label) + '</span><span title="' + esc(s.nom) + '">' +
-            esc(s.nom.split(" ")[0]) + (s.pers === 2 ? " +1" : "") + "</span></div>";
-        } else {
-          camasL++;
-          bh += '<div class="bed f"><span>' + esc(b.label) + "</span><span>libre</span></div>";
-        }
+       if (s) {
+  nO++; pers += s.pers;
+  bh += '<div class="bed o det"><div class="bl"><span>' + esc(b.label) + '</span><span>ocupada</span></div>' +
+    '<b>' + esc((s.gra ? s.gra + " " : "") + s.nom) + '</b>' +
+    (s.pers === 2 ? '<small>+ ' + esc(s.aco || "acompañante") + '</small>' : '') +
+    '<small>' + fmt(s.ing) + ' → ' + fmt(s.sal) + '</small></div>';
+} else {
+  camasL++;
+  bh += '<div class="bed f"><span>' + esc(b.label) + "</span><span>libre</span></div>";
+}
+bh += proximos(b.id, t);
       });
       var cls = nO === 0 ? "ok" : nO === r.beds.length ? "no" : "mid";
       var lab = { ok: "Disponible", no: "Ocupada", mid: "Parcial" }[cls];
