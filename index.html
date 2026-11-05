@@ -363,6 +363,8 @@
 .qrbox { display: flex; align-items: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
 #qr { background: #fff; padding: 10px; border-radius: 12px; line-height: 0; }
 .consulta .tabs, .consulta #hist-btn, .consulta #hist { display: none !important; }
+.registro .tabs, .registro #hist-btn, .registro #hist { display: none !important; }
+.registro main > section:not(#p-reg) { display: none !important; }
 </style>
 </head>
 <body>
@@ -412,7 +414,7 @@
 
 <section class="panel" data-tab="ocup"><h2>Habitaciones</h2><div class="grid" id="grid"></div></section>
 
-<section class="panel" data-tab="ocup">
+<section class="panel" data-tab="ocup" id="p-reg">
   <h2>Registrar ingreso</h2>
   <div class="row">
     <label>Nombre completo<input id="nom" autocomplete="off"></label>
@@ -457,7 +459,7 @@
   </div>
   <div class="qrbox">
     <div id="qr"></div>
-    <div><p class="note" style="margin:0">Escanea el QR para ver las fechas disponibles desde el celular.</p><p class="note" id="qrurl"></p></div>
+    <div><p class="note" style="margin:0">Escanea el QR para registrarte desde el celular.</p><p class="note" id="qrurl"></p></div>
   </div>
   <div class="grid wide" id="fgrid" style="margin-top:16px"></div>
 </section>
@@ -979,7 +981,7 @@ bh += proximos(b.id, t);
   }
 
   function hacerQR() {
-    var url = location.origin + location.pathname + "#fechas";
+   var url = location.origin + location.pathname + "#registro";
     var box = $("qr");
     box.innerHTML = "";
     if (typeof QRCode === "function") new QRCode(box, { text: url, width: 160, height: 160 });
@@ -1030,7 +1032,7 @@ bh += proximos(b.id, t);
   ["fd", "fh", "fr"].forEach(function (i) { $(i).onchange = renderFechas; });
   $("tabs").onclick = function (e) { var b = e.target.closest("button"); if (b) setTab(b.dataset.tab); };
   hacerQR();
-  if (location.hash === "#fechas") { document.body.classList.add("consulta"); setTab("fechas"); }
+  if (location.hash === "#registro") { document.body.classList.add("registro"); }
   state = loadLocal() || state;
   render();
   setChip("saving", "Leyendo…");
