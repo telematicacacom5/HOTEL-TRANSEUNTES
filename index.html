@@ -421,6 +421,7 @@
     <label>Identificación<input id="ide" inputmode="numeric" autocomplete="off"></label>
     <label>Grado<input id="gra"></label>
     <label>Dependencia<input id="dep"></label>
+    <label>Unidad<input id="uni"></label>
   </div>
   <div class="row">
     <label>Fecha y hora de ingreso<input type="datetime-local" id="ing"></label>
@@ -599,7 +600,7 @@
       var pers = +e.pers === 2 ? 2 : 1;
       return {
         id: String(e.id || newId()), nom: String(e.nom), ide: String(e.ide || ""), gra: String(e.gra || ""),
-        dep: String(e.dep || ""), bed: e.bed, ing: e.ing, sal: e.sal || null, pers: pers,
+        dep: String(e.dep || ""), uni: String(e.uni || ""), 
         aco: pers === 2 ? String(e.aco || "") : "", obs: String(e.obs || "")
       };
     });
@@ -784,6 +785,7 @@
   bh += '<div class="bed o det"><div class="bl"><span>' + esc(b.label) + '</span><span>ocupada</span></div>' +
     '<b>' + esc((s.gra ? s.gra + " " : "") + s.nom) + '</b>' +
     (s.pers === 2 ? '<small>+ ' + esc(s.aco || "acompañante") + '</small>' : '') +
+    (s.uni ? '<small>' + esc(s.uni) + '</small>' : '') +
     '<small>' + fmt(s.ing) + ' → ' + fmt(s.sal) + '</small></div>';
 } else {
   camasL++;
@@ -831,7 +833,7 @@ bh += proximos(b.id, t);
       return "<tr><td>" + esc(s.nom) +
         (s.aco ? "<br><small>+ " + esc(s.aco) + "</small>" : "") +
         (s.obs ? "<br><small>" + esc(s.obs) + "</small>" : "") +
-        "</td><td>" + esc(s.ide) + "</td><td>" + esc(s.gra) + "<br><small>" + esc(s.dep) + "</small></td>" +
+        "</td><td>" + esc(s.ide) + "</td><td>" + esc(s.gra) + "<br><small>" + esc(s.dep) + (s.uni ? " · " + esc(s.uni) : "") + "</small></td>" +
         "<td>" + esc(b ? b.room + " · " + b.bed.label : s.bed) + "</td>" +
         "<td>" + fmt(s.ing) + "</td><td>" + fmt(s.sal) + "</td>" +
         '<td><span class="badge ' + e[1] + '">' + e[0] + "</span></td>" +
@@ -878,13 +880,13 @@ bh += proximos(b.id, t);
     if (busyWith(bed, { ing: ing, sal: sal })) { alert("Esa cama ya está ocupada en ese horario."); return; }
     var pers = !$("ocwrap").hidden && $("oc").value === "2" ? 2 : 1;
     var st = {
-      id: newId(), nom: nom, ide: $("ide").value.trim(), gra: $("gra").value.trim(), dep: $("dep").value.trim(),
+      id: newId(), nom: nom, ide: $("ide").value.trim(), gra: $("gra").value.trim(), dep: $("dep").value.trim(), uni: $("uni").value.trim(),
       bed: bed, ing: ing, sal: sal, pers: pers, aco: pers === 2 ? $("aco").value.trim() : "", obs: $("obs").value.trim()
     };
     state.entries.push(st);
     dirty[st.id] = true;
     anotar("ingreso", st);
-    ["nom", "ide", "gra", "dep", "sal", "aco", "obs"].forEach(function (i) { $(i).value = ""; });
+    ["nom", "ide", "gra", "dep", "uni", "sal", "aco", "obs"].forEach(function (i) { $(i).value = ""; });
     $("oc").value = "1";
     $("ing").value = loc(new Date());
     scheduleSave();
