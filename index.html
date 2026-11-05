@@ -365,6 +365,11 @@
 .consulta .tabs, .consulta #hist-btn, .consulta #hist { display: none !important; }
 .registro .tabs, .registro #hist-btn, .registro #hist { display: none !important; }
 .registro main > section:not(#p-reg) { display: none !important; }
+#avisos { position: fixed; top: calc(96px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 60; display: flex; flex-direction: column; gap: 8px; max-width: min(360px, calc(100vw - 24px)); }
+.aviso { background: var(--glass); border: 1px solid var(--glass-brd); -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur)); box-shadow: var(--shadow-lg); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 14px; color: var(--ink); cursor: pointer; }
+.aviso.o { border-left: 4px solid var(--crit); }
+.aviso.d { border-left: 4px solid var(--ok); }
+.registro #avisos { display: none !important; }
 </style>
 </head>
 <body>
@@ -406,7 +411,7 @@
   <h2>Disponibilidad</h2>
   <div class="row">
     <label>Consultar a la fecha y hora<input type="datetime-local" id="q"></label>
-    <button class="sec" id="ahora" type="button">Ahora</button>
+    <button class="sec" id="ahora" type="button">Ahora</button> <button class="sec" id="avisos-btn" type="button">Activar avisos</button>
   </div>
   <div class="stats" id="stats"></div>
   <div class="bar" id="bar"></div>
@@ -467,6 +472,7 @@
 </main>
 <footer id="foot-store"></footer>
 <div id="chip" role="status" aria-live="polite" data-state="saving">Leyendo…</div>
+  <button class="sec" id="avisos-btn" type="button">Activar avisos</button>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (function () {
@@ -762,6 +768,7 @@
     renderHist();
     fillBeds();
         renderFechas();
+        if (vigilando) revisarCambios();
   }
 
     function proximos(bedId, t) {
@@ -990,7 +997,47 @@ bh += proximos(b.id, t);
     else box.textContent = "QR no disponible";
     $("qrurl").textContent = url;
   }
-  // ---------- arranque ----------
+    var prevOcc = null, vigilando = false;
+
+  function mostrarAviso(msg, tipo) {
+    var d = document.createElement("div");
+    d.className = "aviso " + tipo;
+    d.textContent = msg;
+    d.onclick = function () { d.remove(); };
+    $("avisos").appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.remove(); }, 12000);
+  }
+
+  function avisar(msg, tipo) {
+    mostrarAviso(msg, tipo);
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Barracas de transeúntes", { body: msg });
+      }
+    } catch (e) {}
+  }
+
+  function revisarCambios() {
+    var t = loc(new Date()), ids = {}, nom = {};
+    state.entries.forEach(function (x) {
+      if (activeAt(x, t)) { ids[x.bed] = x.id; nom[x.bed] = (x.gra ? x.gra + " " : "") + x.nom; }
+    });
+    if (prevOcc) {
+      Object.keys(ids).forEach(function (b) {
+        if (prevOcc[b] !== ids[b]) avisar("OCUPADA · " + camaTxt(b) + " · " + nom[b], "o");
+      });
+      Object.keys(prevOcc).forEach(function (b) {
+        if (!ids[b]) avisar("DISPONIBLE · " + camaTxt(b), "d");
+      });
+      ROOMS.forEach(function (r) {
+        var antes = r.beds.filter(function (b) { return prevOcc[b.id]; }).length;
+        var ahora = r.beds.filter(function (b) { return ids[b.id]; }).length;
+        if (ahora === r.beds.length && antes < r.beds.length) avisar("Habitación " + r.n + " COMPLETA", "o");
+        if (ahora === 0 && antes > 0) avisar("Habitación " + r.n + " DISPONIBLE (todas las camas libres)", "d");
+      });
+    }
+    prevOcc = ids;
+  }
   loadPrefs();
   applyTheme();
   tick();
@@ -1035,10 +1082,15 @@ bh += proximos(b.id, t);
   $("tabs").onclick = function (e) { var b = e.target.closest("button"); if (b) setTab(b.dataset.tab); };
   hacerQR();
   if (location.hash === "#registro") { document.body.classList.add("registro"); }
-  state = loadLocal() || state;
+    $("avisos-btn").hidden = !("Notification" in window) || Notification.permission !== "default";
+  $("avisos-btn").onclick = function () {
+    var b = this;
+    Notification.requestPermission().then(function () { b.hidden = true; });
+  };
   render();
   setChip("saving", "Leyendo…");
   pullFromServer().then(function () {
+        vigilando = true; prevOcc = null; revisarCambios();
     if (SYNC_URL && hasPending()) pushToServer();
     else refreshChip();
   });
