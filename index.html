@@ -472,7 +472,7 @@
 </section>
 </main>
 <footer id="foot-store"></footer>
-<div id="chip" role="status" aria-live="polite" data-state="saving">Leyendo…</div>
+<div id="avisos" aria-live="polite"></div>
   <button class="sec" id="avisos-btn" type="button">Activar avisos</button>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -605,10 +605,11 @@
       return e && fh.test(e.ing) && (!e.sal || fh.test(e.sal)) && typeof e.bed === "string" && e.nom;
     }).map(function (e) {
       var pers = +e.pers === 2 ? 2 : 1;
-      return {
+           return {
         id: String(e.id || newId()), nom: String(e.nom), ide: String(e.ide || ""), gra: String(e.gra || ""),
-        uni: String(e.uni || ""), gen: (e.gen === "M" || e.gen === "F") ? e.gen : "",
-          aco: pers === 2 ? String(e.aco || "") : "", obs: String(e.obs || "")
+        dep: String(e.dep || ""), uni: String(e.uni || ""), gen: (e.gen === "M" || e.gen === "F") ? e.gen : "",
+        bed: e.bed, ing: e.ing, sal: e.sal || null, pers: pers,
+        aco: pers === 2 ? String(e.aco || "") : "", obs: String(e.obs || "")
       };
     });
     return { v: 1, entries: entries, historial: Array.isArray(d.historial) ? d.historial.slice(0, HIST_MAX) : [] };
@@ -761,7 +762,11 @@
   }
 
   // ---------- pintado ----------
-  function queryTime() { return $("q").value || loc(new Date()); }
+    var qManual = false;
+  function queryTime() {
+    if (!qManual || !$("q").value) { $("q").value = loc(new Date()); }
+    return $("q").value;
+  }
 
   function render() {
     renderRooms();
@@ -779,7 +784,9 @@
       var b = BED[x.bed];
       return b && b.room === roomName && x.id !== exceptId && x.gen && gen && x.gen !== gen && overlap(x, cand);
     })[0];
-  } {
+  }
+
+  function proximos(bedId, t) {
     return state.entries.filter(function (x) { return x.bed === bedId && x.ing > t; })
       .sort(function (a, b) { return a.ing < b.ing ? -1 : 1; })
       .map(function (x) {
@@ -1078,8 +1085,8 @@ bh += proximos(b.id, t);
     autor = this.value.trim().slice(0, 40);
     try { localStorage.setItem(AUTOR, autor); } catch (e) {}
   };
-  $("ahora").onclick = function () { $("q").value = loc(new Date()); renderRooms(); };
-  $("q").onchange = renderRooms;
+    $("ahora").onclick = function () { qManual = false; $("q").value = loc(new Date()); renderRooms(); };
+  $("q").onchange = function () { qManual = true; renderRooms(); };
   $("buscar").oninput = renderTable;
   $("ver").onchange = function () { prefs.ver = this.value; savePrefs(); renderTable(); };
   ["hab", "cam", "ing", "gen","sal", "oc"].forEach(function (i) { $(i).onchange = fillBeds; });
@@ -1111,6 +1118,8 @@ bh += proximos(b.id, t);
   });
 
   setInterval(poll, POLL_MS);
+    setInterval(function () { if (!qManual) renderRooms(); }, 60000);
+    setInterval(function () { if (vigilando) revisarCambios(); }, 30000);
   // Los estados (ocupado, finalizado) dependen de la hora: se repintan solos.
   setInterval(function () { if (!formEnUso()) { renderTable(); renderHist(); } }, 60000);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
