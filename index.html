@@ -370,6 +370,9 @@
 .aviso.o { border-left: 4px solid var(--crit); }
 .aviso.d { border-left: 4px solid var(--ok); }
 .registro #avisos { display: none !important; }
+.registro #hab-w, .registro #cam-w { display: none !important; }
+.solo-qr { display: none; }
+.registro .solo-qr { display: block; }
 </style>
 </head>
 <body>
@@ -428,20 +431,23 @@
     <label>Dependencia<input id="dep"></label>
     <label>Unidad<input id="uni"></label>
     <label>Género<select id="gen"><option value="">Seleccione</option><option value="M">Masculino</option><option value="F">Femenino</option></select></label>
+    <label>Tipo de comisión<select id="com"><option value="">Seleccione</option><option>Comisión de servicio</option><option>Comisión administrativa</option><option>Comisión operativa</option></select></label>
+<label>Teléfono<input id="tel" type="tel" inputmode="tel" autocomplete="off"></label>
+<label>Correo<input id="cor" type="email" autocomplete="off"></label>
   </div>
   <div class="row">
     <label>Fecha y hora de ingreso<input type="datetime-local" id="ing"></label>
     <label>Fecha y hora de salida (opcional)<input type="datetime-local" id="sal"></label>
-    <label>Habitación<select id="hab"></select></label>
-    <label>Cama<select id="cam"></select></label>
+   <label id="hab-w">Habitación<select id="hab"></select></label>
+<label id="cam-w">Cama<select id="cam"></select></label>
   </div>
   <div class="row">
-    <label id="ocwrap" hidden>Ocupación de la cama doble<select id="oc"><option value="1">1 persona</option><option value="2">Pareja (2 personas)</option></select></label>
-    <label id="acwrap" hidden>Nombre del acompañante<input id="aco"></label>
+    <label id="ocwrap" hidden>Ocupación de la cama doble<select id="oc"><option value="1">1 persona</option><option value="2">Pareja (2 personas)</option><option value="F">Familiar</option>
+   <label id="acwrap" hidden><span id="aco-t">Nombre del acompañante</span><input id="aco"></label>
     <label class="wide">Observaciones<input id="obs"></label>
     <button id="reg">Registrar</button>
   </div>
-  <p class="note">Las camas ocupadas en ese horario aparecen deshabilitadas. El estado se calcula solo según las fechas.</p>
+ <p class="note solo-qr">El administrador te asignará una habitación y te contactará por correo o por llamada.</p>
 </section>
 
 <section class="panel" data-tab="ocup">
@@ -604,12 +610,13 @@
     var entries = d.entries.filter(function (e) {
       return e && fh.test(e.ing) && (!e.sal || fh.test(e.sal)) && typeof e.bed === "string" && e.nom;
     }).map(function (e) {
-      var pers = +e.pers === 2 ? 2 : 1;
+      var pers = Math.max(1, Math.min(12, +e.pers || 1));
            return {
         id: String(e.id || newId()), nom: String(e.nom), ide: String(e.ide || ""), gra: String(e.gra || ""),
         dep: String(e.dep || ""), uni: String(e.uni || ""), gen: (e.gen === "M" || e.gen === "F") ? e.gen : "",
+        tel: String(e.tel || ""), cor: String(e.cor || ""), com: String(e.com || ""),
         bed: e.bed, ing: e.ing, sal: e.sal || null, pers: pers,
-        aco: pers === 2 ? String(e.aco || "") : "", obs: String(e.obs || "")
+        aco: pers >= 2 ? String(e.aco || "") : "", obs: String(e.obs || "")
       };
     });
     return { v: 1, entries: entries, historial: Array.isArray(d.historial) ? d.historial.slice(0, HIST_MAX) : [] };
@@ -648,7 +655,7 @@
     var perdidas = [];
     state.entries.forEach(function (e) {
       if (!dirty[e.id]) return;
-      var choque = out.filter(function (x) { return x.id !== e.id && x.bed === e.bed && overlap(x, e); })[0];
+      var choque = out.filter(function (x) { return x.id !== e.id && e.bed && x.bed === e.bed && overlap(x, e); })[0];
       if (choque && !dirty[choque.id]) { perdidas.push(e); delete dirty[e.id]; return; }
       if (pos[e.id] === undefined) out.push(e);
       else out[pos[e.id]] = e;
@@ -791,7 +798,7 @@
       .sort(function (a, b) { return a.ing < b.ing ? -1 : 1; })
       .map(function (x) {
         return '<div class="bed p det"><b>Próximo: ' + esc((x.gra ? x.gra + " " : "") + x.nom) + '</b>' +
-          (x.pers === 2 ? '<small>+ ' + esc(x.aco || "acompañante") + '</small>' : '') +
+          (x.pers >= 2 ? '<small>+ ' + esc(x.aco || "acompañante") + '</small>' : '') +
           '<small>' + fmt(x.ing) + ' → ' + fmt(x.sal) + '</small></div>';
       }).join("");
   }
@@ -808,7 +815,7 @@
   bh += '<div class="bed o det"><div class="bl"><span>' + esc(b.label) + '</span><span>ocupada</span></div>' +
     '<b>' + esc((s.gra ? s.gra + " " : "") + s.nom) + '</b>' +
         (s.gen ? '<small>' + genTxt(s.gen) + '</small>' : '') +
-    (s.pers === 2 ? '<small>+ ' + esc(s.aco || "acompañante") + '</small>' : '') +
+    (s.pers >= 2? '<small>+ ' + esc(s.aco || "acompañante") + '</small>' : '') +
     (s.uni ? '<small>' + esc(s.uni) + '</small>' : '') +
     '<small>' + fmt(s.ing) + ' → ' + fmt(s.sal) + '</small></div>';
 } else {
@@ -836,6 +843,7 @@ bh += proximos(b.id, t);
   function seg(f, v) { return '<div style="width:' + (f * 100) + "%;background:var(" + v + ')"></div>'; }
 
   function estado(s) {
+    if (!s.bed) return ["Por asignar", "s-mid"];
     var n = loc(new Date());
     if (s.ing > n) return ["Programado", "s-mid"];
     if (s.sal && s.sal <= n) return ["Finalizado", "s-n"];
@@ -854,20 +862,20 @@ bh += proximos(b.id, t);
 
     $("tb").innerHTML = list.map(function (s) {
       var e = estado(s), b = BED[s.bed];
-      return "<tr><td>" + esc(s.nom) + (s.gen ? " <small>(" + genTxt(s.gen) + ")</small>" : "") +
+      return "<tr><td>" + esc(s.nom) + (s.gen ? " <small>(" + genTxt(s.gen) + ")</small>" : "") + (s.com ? "<br><small>" + esc(s.com) + "</small>" : "") + (s.tel ? "<br><small>Tel. " + esc(s.tel) + "</small>" : "") + (s.cor ? "<br><small>" + esc(s.cor) + "</small>" : "") +
         (s.aco ? "<br><small>+ " + esc(s.aco) + "</small>" : "") +
         (s.obs ? "<br><small>" + esc(s.obs) + "</small>" : "") +
         "</td><td>" + esc(s.ide) + "</td><td>" + esc(s.gra) + "<br><small>" + esc(s.dep) + (s.uni ? " · " + esc(s.uni) : "") + "</small></td>" +
-        "<td>" + esc(b ? b.room + " · " + b.bed.label : s.bed) + "</td>" +
+        "<td>" + esc(b ? b.room + " · " + b.bed.label : "Por asignar") + "</td>" +
         "<td>" + fmt(s.ing) + "</td><td>" + fmt(s.sal) + "</td>" +
         '<td><span class="badge ' + e[1] + '">' + e[0] + "</span></td>" +
-        '<td class="acc">' + (e[0] === "Ocupado" ? '<button class="sm" data-out="' + esc(s.id) + '">Registrar salida</button> ' : "") +
+'<td class="acc">' + (!s.bed ? '<button class="sm" data-asg="' + esc(s.id) + '">Asignar</button> ' : "") +
         '<button class="sm sec danger" data-del="' + esc(s.id) + '">Borrar</button></td></tr>';
     }).join("");
     $("vacio").textContent = list.length ? "" : state.entries.length ? "Ningún registro coincide." : "Aún no hay registros.";
   }
 
-  var ACCIONES = { ingreso: "registró el ingreso de", salida: "registró la salida de", borrar: "borró la estancia de" };
+   var ACCIONES = { ingreso: "registró el ingreso de", salida: "registró la salida de", borrar: "borró la estancia de", solicitud: "recibió la solicitud de", asignar: "asignó cama a" };
   function renderHist() {
     if ($("hist").hidden) return;
     var pend = {};
@@ -893,32 +901,62 @@ bh += proximos(b.id, t);
     for (var i = 0; i < opts.length; i++) if (opts[i].value === prev && !opts[i].disabled) { $("cam").value = prev; ok = true; }
     if (!ok) for (i = 0; i < opts.length; i++) if (!opts[i].disabled) { $("cam").value = opts[i].value; break; }
     var b = BED[$("cam").value], dbl = !!b && b.bed.tipo === "D";
-    $("ocwrap").hidden = !dbl;
-    $("acwrap").hidden = !(dbl && $("oc").value === "2");
+   var sol = document.body.classList.contains("registro");
+$("ocwrap").hidden = !(dbl || sol);
+$("acwrap").hidden = !((dbl || sol) && $("oc").value !== "1");
+$("aco-t").textContent = $("oc").value === "F" ? "Nombres de los familiares (separados por coma)" : "Nombre del acompañante";
   }
 
   // ---------- acciones ----------
+   var asignando = null;
+
   function registrar() {
-    var nom = $("nom").value.trim(), ing = $("ing").value, sal = $("sal").value || null, bed = $("cam").value;
-    var opt = $("cam").selectedOptions[0];
-    if (!nom || !ing || !bed || (opt && opt.disabled)) { alert("Falta el nombre, la fecha de ingreso o una cama libre."); return; }     var gen = $("gen").value;
+    var sol = document.body.classList.contains("registro");
+    var nom = $("nom").value.trim(), ing = $("ing").value, sal = $("sal").value || null;
+    var gen = $("gen").value, bed = sol ? "" : $("cam").value, opt = $("cam").selectedOptions[0];
+    if (!nom || !ing) { alert("Falta el nombre o la fecha de ingreso."); return; }
     if (!gen) { alert("Falta el género."); return; }
-    var otro = choqueGenero(BED[bed].room, { ing: ing, sal: sal }, gen);
-    if (otro) { alert("Esa habitación ya tiene a " + otro.nom + " (" + genTxt(otro.gen).toLowerCase() + ") en ese horario. No se pueden mezclar géneros."); return; }
+    if (!$("com").value) { alert("Falta el tipo de comisión."); return; }
+    if (sol && !$("tel").value.trim() && !$("cor").value.trim()) { alert("Escribe un teléfono o un correo para contactarte."); return; }
     if (sal && sal <= ing) { alert("La salida debe ser posterior al ingreso."); return; }
-    if (busyWith(bed, { ing: ing, sal: sal })) { alert("Esa cama ya está ocupada en ese horario."); return; }
-    var pers = !$("ocwrap").hidden && $("oc").value === "2" ? 2 : 1;
+    if (!sol) {
+      if (!bed || (opt && opt.disabled)) { alert("Falta elegir una cama libre."); return; }
+      if (busyWith(bed, { ing: ing, sal: sal }, asignando)) { alert("Esa cama ya está ocupada en ese horario."); return; }
+      var otro = choqueGenero(BED[bed].room, { ing: ing, sal: sal }, gen, asignando);
+      if (otro) { alert("Esa habitación ya tiene a " + otro.nom + " (" + genTxt(otro.gen).toLowerCase() + ") en ese horario. No se pueden mezclar géneros."); return; }
+    }
+    var ocv = $("ocwrap").hidden ? "1" : $("oc").value;
+    var aco = ocv === "1" ? "" : $("aco").value.trim(), pers = ocv === "2" ? 2 : 1;
+    if (ocv === "F") {
+      var n = aco.split(",").filter(function (x) { return x.trim(); }).length;
+      if (!n) { alert("Escribe los nombres de los familiares, separados por coma."); return; }
+      pers = 1 + n;
+    }
     var st = {
-      id: newId(), nom: nom, ide: $("ide").value.trim(), gra: $("gra").value.trim(), dep: $("dep").value.trim(), uni: $("uni").value.trim(), gen: gen,
-      bed: bed, ing: ing, sal: sal, pers: pers, aco: pers === 2 ? $("aco").value.trim() : "", obs: $("obs").value.trim()
+      id: asignando || newId(), nom: nom, ide: $("ide").value.trim(), gra: $("gra").value.trim(), dep: $("dep").value.trim(),
+      uni: $("uni").value.trim(), gen: gen, tel: $("tel").value.trim(), cor: $("cor").value.trim(), com: $("com").value,
+      bed: bed, ing: ing, sal: sal, pers: pers, aco: aco, obs: $("obs").value.trim()
     };
+    if (asignando) state.entries = state.entries.filter(function (x) { return x.id !== asignando; });
     state.entries.push(st);
     dirty[st.id] = true;
-    anotar("ingreso", st);
-    ["nom", "ide", "gra", "dep", "uni", "sal", "gen","aco", "obs"].forEach(function (i) { $(i).value = ""; });
+    anotar(asignando ? "asignar" : sol ? "solicitud" : "ingreso", st);
+    asignando = null;
+    ["nom", "ide", "gra", "dep", "uni", "gen", "tel", "cor", "com", "sal", "aco", "obs"].forEach(function (i) { $(i).value = ""; });
     $("oc").value = "1";
     $("ing").value = loc(new Date());
     scheduleSave();
+    if (sol) alert("Solicitud enviada. El administrador te asignará una habitación y te contactará por correo o por llamada.");
+  }
+
+  function cargarSolicitud(id) {
+    var s = state.entries.filter(function (x) { return x.id === id; })[0];
+    if (!s) return;
+    asignando = id;
+    ["nom", "ide", "gra", "dep", "uni", "gen", "tel", "cor", "com", "ing", "sal", "aco", "obs"].forEach(function (k) { $(k).value = s[k] || ""; });
+    fillBeds();
+    $("p-reg").scrollIntoView({ behavior: "smooth" });
+    alert("Elige habitación y cama y pulsa Registrar para asignar a " + s.nom + ".");
   }
 
   function registrarSalida(id) {
@@ -1042,7 +1080,7 @@ bh += proximos(b.id, t);
   function revisarCambios() {
     var t = loc(new Date()), ids = {}, nom = {};
     state.entries.forEach(function (x) {
-      if (activeAt(x, t)) { ids[x.bed] = x.id; nom[x.bed] = (x.gra ? x.gra + " " : "") + x.nom; }
+      if (BED[x.bed] && activeAt(x, t)) { ids[x.bed] = x.id; nom[x.bed] = (x.gra ? x.gra + " " : "") + x.nom; }
     });
     if (prevOcc) {
       Object.keys(ids).forEach(function (b) {
@@ -1096,6 +1134,7 @@ bh += proximos(b.id, t);
     if (!btn) return;
     if (btn.dataset.out) registrarSalida(btn.dataset.out);
     if (btn.dataset.del) borrar(btn.dataset.del);
+    if (btn.dataset.asg) cargarSolicitud(btn.dataset.asg);
   };
   $("fr").innerHTML = '<option value="*">Todas</option>' + ROOMS.map(function (r) { return '<option value="' + esc(r.n) + '">' + esc(r.n) + "</option>"; }).join("");
   $("fd").value = loc(new Date());
