@@ -431,7 +431,8 @@
     <label>Dependencia<input id="dep"></label>
     <label>Unidad<input id="uni"></label>
     <label>Género<select id="gen"><option value="">Seleccione</option><option value="M">Masculino</option><option value="F">Femenino</option></select></label>
-    <label>Tipo de comisión<select id="com"><option value="">Seleccione</option><option>Comisión de servicio</option><option>Comisión administrativa</option><option>Comisión operativa</option></select></label>
+   <label>¿Viene en comisión?<select id="encom"><option value="">No</option><option value="1">Sí</option></select></label>
+<label id="com-w" hidden>Tipo de comisión<select id="com"><option value="">Seleccione</option><option>Comisión de servicio</option><option>Comisión administrativa</option><option>Comisión operativa</option></select></label>
 <label>Teléfono<input id="tel" type="tel" inputmode="tel" autocomplete="off"></label>
 <label>Correo<input id="cor" type="email" autocomplete="off"></label>
   </div>
@@ -916,7 +917,7 @@ $("aco-t").textContent = $("oc").value === "F" ? "Nombres de los familiares (sep
     var gen = $("gen").value, bed = sol ? "" : $("cam").value, opt = $("cam").selectedOptions[0];
     if (!nom || !ing) { alert("Falta el nombre o la fecha de ingreso."); return; }
     if (!gen) { alert("Falta el género."); return; }
-    if (!$("com").value) { alert("Falta el tipo de comisión."); return; }
+       if ($("encom").value === "1" && !$("com").value) { alert("Falta el tipo de comisión."); return; }
     if (sol && !$("tel").value.trim() && !$("cor").value.trim()) { alert("Escribe un teléfono o un correo para contactarte."); return; }
     if (sal && sal <= ing) { alert("La salida debe ser posterior al ingreso."); return; }
     if (!sol) {
@@ -934,7 +935,7 @@ $("aco-t").textContent = $("oc").value === "F" ? "Nombres de los familiares (sep
     }
     var st = {
       id: asignando || newId(), nom: nom, ide: $("ide").value.trim(), gra: $("gra").value.trim(), dep: $("dep").value.trim(),
-      uni: $("uni").value.trim(), gen: gen, tel: $("tel").value.trim(), cor: $("cor").value.trim(), com: $("com").value,
+      uni: $("uni").value.trim(), gen: gen, tel: $("tel").value.trim(), cor: $("cor").value.trim(),com: $("encom").value === "1" ? $("com").value : ""
       bed: bed, ing: ing, sal: sal, pers: pers, aco: aco, obs: $("obs").value.trim()
     };
     if (asignando) state.entries = state.entries.filter(function (x) { return x.id !== asignando; });
@@ -953,7 +954,9 @@ $("aco-t").textContent = $("oc").value === "F" ? "Nombres de los familiares (sep
     var s = state.entries.filter(function (x) { return x.id === id; })[0];
     if (!s) return;
     asignando = id;
-    ["nom", "ide", "gra", "dep", "uni", "gen", "tel", "cor", "com", "ing", "sal", "aco", "obs"].forEach(function (k) { $(k).value = s[k] || ""; });
+    ["nom", "ide", "gra", "dep", "uni", "gen", "tel", "cor", "com", "ing", "sal", "aco", "obs","encom"].forEach(function (k) { $(k).value = s[k] || ""; });
+    $("encom").value = s.com ? "1" : "";
+    $("com-w").hidden = !s.com;
     fillBeds();
     $("p-reg").scrollIntoView({ behavior: "smooth" });
     alert("Elige habitación y cama y pulsa Registrar para asignar a " + s.nom + ".");
@@ -1129,6 +1132,11 @@ $("aco-t").textContent = $("oc").value === "F" ? "Nombres de los familiares (sep
   $("ver").onchange = function () { prefs.ver = this.value; savePrefs(); renderTable(); };
   ["hab", "cam", "ing", "gen","sal", "oc"].forEach(function (i) { $(i).onchange = fillBeds; });
   $("reg").onclick = registrar;
+    $("encom").onchange = function () {
+    $("com-w").hidden = true;
+    $("com-w").hidden = this.value !== "1";
+    if (this.value !== "1") $("com").value = "";
+  };
   $("tb").onclick = function (e) {
     var btn = e.target.closest("button");
     if (!btn) return;
