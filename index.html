@@ -443,7 +443,7 @@
 <label id="cam-w">Cama<select id="cam"></select></label>
   </div>
   <div class="row">
-    <label id="ocwrap" hidden>Ocupación de la cama doble<select id="oc"><option value="1">1 persona</option><option value="2">Pareja (2 personas)</option><option value="F">Familiar</option>
+    <label id="ocwrap" hidden>Ocupación de la cama doble<select id="oc"><option value="1">1 persona</option><option value="2">Pareja (2 personas)</option><option value="F">Familiar</option> <label id="ocwrap" hidden>Ocupación de la cama doble<select id="oc"><option value="1">1 persona</option><option value="2">Pareja (2 personas)</option><option value="F">Familiar</option></select></label>
    <label id="acwrap" hidden><span id="aco-t">Nombre del acompañante</span><input id="aco"></label>
     <label class="wide">Observaciones<input id="obs"></label>
     <button id="reg">Registrar</button>
@@ -480,7 +480,7 @@
 </main>
 <footer id="foot-store"></footer>
 <div id="avisos" aria-live="polite"></div>
-  <button class="sec" id="avisos-btn" type="button">Activar avisos</button>
+ <div id="chip" role="status" aria-live="polite" data-state="saving">Leyendo…</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 (function () {
@@ -935,7 +935,8 @@ $("aco-t").textContent = $("oc").value === "F" ? "Nombres de los familiares (sep
     }
     var st = {
       id: asignando || newId(), nom: nom, ide: $("ide").value.trim(), gra: $("gra").value.trim(), dep: $("dep").value.trim(),
-      uni: $("uni").value.trim(), gen: gen, tel: $("tel").value.trim(), cor: $("cor").value.trim(),com: $("encom").value === "1" ? $("com").value : ""
+      uni: $("uni").value.trim(), gen: gen, tel: $("tel").value.trim(), cor: $("cor").value.trim(),
+      com: $("encom").value === "1" ? $("com").value : "",
       bed: bed, ing: ing, sal: sal, pers: pers, aco: aco, obs: $("obs").value.trim()
     };
     if (asignando) state.entries = state.entries.filter(function (x) { return x.id !== asignando; });
@@ -1156,7 +1157,8 @@ $("aco-t").textContent = $("oc").value === "F" ? "Nombres de los familiares (sep
     var b = this;
     Notification.requestPermission().then(function () { b.hidden = true; });
   };
-  render();
+  render();  
+  state = loadLocal() || state;
   setChip("saving", "Leyendo…");
   pullFromServer().then(function () {
         vigilando = true; prevOcc = null; revisarCambios();
